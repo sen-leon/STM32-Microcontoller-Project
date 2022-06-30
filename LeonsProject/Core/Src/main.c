@@ -68,6 +68,8 @@
 /* Private variables ---------------------------------------------------------*/
  I2C_HandleTypeDef hi2c1;
 
+TIM_HandleTypeDef htim1;
+
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -76,6 +78,7 @@
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -91,8 +94,8 @@ HAL_StatusTypeDef read_Gyro_data(uint8_t Sensor_adress, uint8_t config, float Da
 	//	return ret;}
 
 	//HAL_Delay(10);
-
-	ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, Gyro_addr_Z, 1, rawData, 2, 50);
+	//HAL_I2C_Mem_Read(hi2c, DevAddress, MemAddress, MemAddSize, pData, Size, Timeout);
+	ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, Gyro_addr_Z, 1, rawData, 2, 500);
 	if (ret!= HAL_OK){
 		return ret;}
 
@@ -142,6 +145,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_I2C1_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   int perm_B1=1;
   float Gyro_Data=0;
@@ -164,13 +168,19 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  HAL_Delay(100);
-
+	  HAL_Delay(5000);
+	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
 	  //read_Gyro_data();
+
+	  /*
 	  uint8_t config= 0b00100000;
 	  read_Gyro_data(FXAS21002_SLAVE_ADDR_R, config, Gyro_Data);
 	  read_Magn_Accel_data(FXOS8700CQ_SLAVE_ADDR, config, MA_Data);
+	  */
+
+	  //HAL_TIM_Base_Start(&htim1)
 	  //HAL_GPIO_ReadPin(SWDIO_GPIO_Port, SWCLK_Pin);
+	  /*
 	  GPIO_PinState state_B1 = HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin);
 	  //GPIO_PinState state_B1 = HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin);
 	  if (state_B1==GPIO_PIN_SET){
@@ -185,6 +195,7 @@ int main(void)
 		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, 0);
 		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 1);
 	  }
+	  */
 	  /*
 	  GPIO_PinState state_LD4=HAL_GPIO_ReadPin(LD4_GPIO_Port, LD4_Pin);
 	  GPIO_PinState state_LD3=HAL_GPIO_ReadPin(LD3_GPIO_Port, LD3_Pin);
@@ -298,6 +309,52 @@ static void MX_I2C1_Init(void)
 }
 
 /**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 48000;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_DOWN;
+  htim1.Init.Period = 5000;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -316,7 +373,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_EVT_RISING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
@@ -326,6 +383,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_1_IRQn);
 
 }
 
