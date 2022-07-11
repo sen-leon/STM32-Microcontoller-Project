@@ -38,23 +38,24 @@
   int16_t x;
   int16_t y;
   int16_t z;
-  } GYRO_DATA;
+  } DATA_TypeDef;
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
   // FXAS21002 Addresses (Gyroscope)
-  uint8_t FXAS21002_SLAVE_ADDR_R = 0x41; //Read Address of Sensor FXAS21002
-  uint8_t FXAS21002_SLAVE_ADDR_W = 0x40; //Write Address of Sensor FXAS21002
+  const uint8_t FXAS21002_SLAVE_ADDR_R = 0x41; //Read Address of Sensor FXAS21002
+  const uint8_t FXAS21002_SLAVE_ADDR_W = 0x40; //Write Address of Sensor FXAS21002
 
   // Gyro Addresses
-  const uint16_t Gyro_addr_config = 0x13;
-  const uint16_t Gyro_addr_X = 0x01;
-  const uint16_t Gyro_addr_Y = 0x03;
-  const uint16_t Gyro_addr_Z = 0x05;
+  const uint8_t Gyro_addr_config = 0x13;
+  uint8_t Gyro_addr_X = 0x01;
+  const uint8_t Gyro_addr_Y = 0x03;
+  const uint8_t Gyro_addr_Z = 0x05;
+
   // FXOS8700CQ I2C address (Accelerometer)
-  const uint16_t FXOS8700CQ_SLAVE_ADDR = 0x1E; // with pins SA0=0, SA1=0
+  const uint8_t FXOS8700CQ_SLAVE_ADDR = 0x1E; // with pins SA0=0, SA1=0
   const uint8_t OUT_Y_MSB =0x04;
 
 
@@ -85,9 +86,10 @@ static void MX_TIM1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-HAL_StatusTypeDef read_Gyro_data(uint8_t Sensor_adress, uint8_t config, float Data)
+HAL_StatusTypeDef read_Gyro_data(DATA_TypeDef *Data)
 {
 	uint8_t rawData[2];
+
 	HAL_StatusTypeDef ret;
 	//ret=HAL_I2C_Mem_Write(&hi2c1, (uint8_t)(Sensor_adress), 0x13, 1, &config, 1, 1000);
 	//if (ret!= HAL_OK){
@@ -95,9 +97,25 @@ HAL_StatusTypeDef read_Gyro_data(uint8_t Sensor_adress, uint8_t config, float Da
 
 	//HAL_Delay(10);
 	//HAL_I2C_Mem_Read(hi2c, DevAddress, MemAddress, MemAddSize, pData, Size, Timeout);
+	ret=HAL_I2C_Master_Transmit(&hi2c1, FXAS21002_SLAVE_ADDR_W, &Gyro_addr_X, 1, 5000);
+	ret=HAL_I2C_Master_Receive(&hi2c1, FXAS21002_SLAVE_ADDR_R, rawData, 2, 5000);
+	//ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, Gyro_addr_X, 1, rawData, 2, 500);
+		if (ret == HAL_ERROR){
+			return ret;}
+	Data->x = ((uint16_t) rawData[0])<<8 | ((uint16_t) rawData[1]);
+/*
+	ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, Gyro_addr_Y, 1, rawData, 2, 500);
+		if (ret == HAL_ERROR){
+			return ret;}
+	*/
+	Data->y = ((uint16_t) rawData[0])<<8 | ((uint16_t) rawData[1]);
+
+	/*
 	ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, Gyro_addr_Z, 1, rawData, 2, 500);
 	if (ret!= HAL_OK){
 		return ret;}
+	GYRO_DATA->z = rawData;
+	*/
 
 	return HAL_OK;
 }
@@ -147,9 +165,9 @@ int main(void)
   MX_I2C1_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
-  int perm_B1=1;
-  float Gyro_Data=0;
-  float MA_Data=0;
+  //int perm_B1=1;
+  DATA_TypeDef Gyro_Data;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -168,8 +186,9 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  HAL_Delay(5000);
-	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+	  HAL_Delay(500);
+	  //HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+	  read_Gyro_data(&Gyro_Data);
 	  //read_Gyro_data();
 
 	  /*
