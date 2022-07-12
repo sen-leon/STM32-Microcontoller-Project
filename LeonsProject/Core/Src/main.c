@@ -45,19 +45,36 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
   // FXAS21002 Addresses (Gyroscope)
-  const uint8_t FXAS21002_SLAVE_ADDR_R = 0x41; //Read Address of Sensor FXAS21002
-  const uint8_t FXAS21002_SLAVE_ADDR_W = 0x40; //Write Address of Sensor FXAS21002
+  const uint16_t GYRO_DEVADDR_R = 0x41; // or 0x43 //Read Address of Sensor FXAS21002
+  const uint16_t GYRO_DEVADDR_W = 0x40; // or 0x42 //Write Address of Sensor FXAS21002
 
-  // Gyro Addresses
+  //Gyro Registers
   const uint8_t Gyro_addr_config = 0x13;
-  uint8_t Gyro_addr_X = 0x01;
-  const uint8_t Gyro_addr_Y = 0x03;
-  const uint8_t Gyro_addr_Z = 0x05;
+  uint16_t Gyro_MSB_X = 0x01;
+  uint16_t Gyro_LSB_X = 0x02;
+  uint16_t Gyro_MSB_Y = 0x03;
+  uint16_t Gyro_LSB_Y = 0x04;
+  uint16_t Gyro_MSB_Z = 0x05;
+  uint16_t Gyro_LSB_Z = 0x06;
 
-  // FXOS8700CQ I2C address (Accelerometer)
-  const uint8_t FXOS8700CQ_SLAVE_ADDR = 0x1E; // with pins SA0=0, SA1=0
-  const uint8_t OUT_Y_MSB =0x04;
+  // FXOS8700CQ I2C Address (Accelerometer)
+  const uint16_t MAGACC_DEVADDR = 0x1E; //or 0x1D 0x1C 0x1F // with pins SA0=0, SA1=0
 
+  //Accelerometer Registers
+  const uint16_t ACC_MSB_X = 0x01;
+  const uint16_t ACC_LSB_X = 0x02;
+  const uint16_t ACC_MSB_Y = 0x03;
+  const uint16_t ACC_LSB_Y = 0x04;
+  const uint16_t ACC_MSB_Z = 0x05;
+  const uint16_t ACC_LSB_Z = 0x06;
+
+  //Magnetometer Registers
+  const uint16_t MAG_MSB_X = 0x33;
+  const uint16_t MAG_LSB_X = 0x34;
+  const uint16_t MAG_MSB_Y = 0x35;
+  const uint16_t MAG_LSB_Y = 0x36;
+  const uint16_t MAG_MSB_Z = 0x37;
+  const uint16_t MAG_LSB_Z = 0x38;
 
 /* USER CODE END PD */
 
@@ -69,8 +86,6 @@
 /* Private variables ---------------------------------------------------------*/
  I2C_HandleTypeDef hi2c1;
 
-TIM_HandleTypeDef htim1;
-
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -79,7 +94,6 @@ TIM_HandleTypeDef htim1;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
-static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -91,27 +105,37 @@ HAL_StatusTypeDef read_Gyro_data(DATA_TypeDef *Data)
 	uint8_t rawData[2];
 
 	HAL_StatusTypeDef ret;
+	ret=HAL_OK;
 	//ret=HAL_I2C_Mem_Write(&hi2c1, (uint8_t)(Sensor_adress), 0x13, 1, &config, 1, 1000);
 	//if (ret!= HAL_OK){
 	//	return ret;}
 
+	//ret=HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t) GYRO_DEVADDR_R, 1000, 5000);
 	//HAL_Delay(10);
-	//HAL_I2C_Mem_Read(hi2c, DevAddress, MemAddress, MemAddSize, pData, Size, Timeout);
-	ret=HAL_I2C_Master_Transmit(&hi2c1, FXAS21002_SLAVE_ADDR_W, &Gyro_addr_X, 1, 5000);
-	ret=HAL_I2C_Master_Receive(&hi2c1, FXAS21002_SLAVE_ADDR_R, rawData, 2, 5000);
-	//ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, Gyro_addr_X, 1, rawData, 2, 500);
+	ret=HAL_I2C_Mem_Read(&hi2c1, GYRO_DEVADDR_R, Gyro_MSB_X, 1, rawData, 2, 5000);
+	HAL_Delay(10);
+	ret=HAL_OK;
+	ret=HAL_I2C_Mem_Read(&hi2c1, MAGACC_DEVADDR, MAG_MSB_X, 1, rawData, 2, 5000);
+	HAL_Delay(10);
+	ret=HAL_OK;
+	ret=HAL_I2C_Master_Transmit(&hi2c1, GYRO_DEVADDR_W, &Gyro_MSB_X, 1, 5000);
+	HAL_Delay(10);
+	ret=HAL_OK;
+	ret=HAL_I2C_Master_Receive(&hi2c1, GYRO_DEVADDR_R, rawData, 2, 5000);
+	//ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, Gyro_MSB_X, 1, rawData, 2, 500);
+	HAL_Delay(10);
 		if (ret == HAL_ERROR){
 			return ret;}
 	Data->x = ((uint16_t) rawData[0])<<8 | ((uint16_t) rawData[1]);
 /*
-	ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, Gyro_addr_Y, 1, rawData, 2, 500);
+	ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, Gyro_MSB_Y, 1, rawData, 2, 500);
 		if (ret == HAL_ERROR){
 			return ret;}
 	*/
 	Data->y = ((uint16_t) rawData[0])<<8 | ((uint16_t) rawData[1]);
 
 	/*
-	ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, Gyro_addr_Z, 1, rawData, 2, 500);
+	ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, Gyro_MSB_Z, 1, rawData, 2, 500);
 	if (ret!= HAL_OK){
 		return ret;}
 	GYRO_DATA->z = rawData;
@@ -124,7 +148,7 @@ HAL_StatusTypeDef read_Magn_Accel_data(uint8_t Sensor_adress, uint8_t config, fl
 {
 	uint8_t rawData[2];
 	HAL_StatusTypeDef ret;
-	ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, OUT_Y_MSB, 1, rawData, 2, 50);
+	ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, ACC_MSB_X, 1, rawData, 2, 50);
 	if (ret!= HAL_OK){
 		return ret;}
 
@@ -163,7 +187,6 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_I2C1_Init();
-  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   //int perm_B1=1;
   DATA_TypeDef Gyro_Data;
@@ -193,43 +216,12 @@ int main(void)
 
 	  /*
 	  uint8_t config= 0b00100000;
-	  read_Gyro_data(FXAS21002_SLAVE_ADDR_R, config, Gyro_Data);
-	  read_Magn_Accel_data(FXOS8700CQ_SLAVE_ADDR, config, MA_Data);
+	  read_Gyro_data(GYRO_DEVADDR_R, config, Gyro_Data);
+	  read_Magn_Accel_data(MAGACC_DEVADDR, config, MA_Data);
 	  */
 
 	  //HAL_TIM_Base_Start(&htim1)
-	  //HAL_GPIO_ReadPin(SWDIO_GPIO_Port, SWCLK_Pin);
-	  /*
-	  GPIO_PinState state_B1 = HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin);
-	  //GPIO_PinState state_B1 = HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin);
-	  if (state_B1==GPIO_PIN_SET){
-		  perm_B1=perm_B1 ^ 1;
-	  }
 
-	  if (perm_B1==1){
-		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, 1);
-		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 0);
-	  }
-	  else if(perm_B1==0){
-		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, 0);
-		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 1);
-	  }
-	  */
-	  /*
-	  GPIO_PinState state_LD4=HAL_GPIO_ReadPin(LD4_GPIO_Port, LD4_Pin);
-	  GPIO_PinState state_LD3=HAL_GPIO_ReadPin(LD3_GPIO_Port, LD3_Pin);
-	  if (state_LD4 == GPIO_PIN_RESET){
-		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, 1);}
-	  else{
-		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, 0);}
-
-	  if(state_LD3 == GPIO_PIN_RESET){
-		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 1);}
-	  else{
-		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 0);}
-
-	  // HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_RESET);
-	  */
   }
   /* USER CODE END 3 */
 }
@@ -324,52 +316,6 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
-
-}
-
-/**
-  * @brief TIM1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM1_Init(void)
-{
-
-  /* USER CODE BEGIN TIM1_Init 0 */
-
-  /* USER CODE END TIM1_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  /* USER CODE BEGIN TIM1_Init 1 */
-
-  /* USER CODE END TIM1_Init 1 */
-  htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 48000;
-  htim1.Init.CounterMode = TIM_COUNTERMODE_DOWN;
-  htim1.Init.Period = 5000;
-  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim1.Init.RepetitionCounter = 0;
-  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM1_Init 2 */
-
-  /* USER CODE END TIM1_Init 2 */
 
 }
 

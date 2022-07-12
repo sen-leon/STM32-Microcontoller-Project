@@ -60,8 +60,8 @@ all: main-build
 main-build: LeonsProject.elf secondary-outputs
 
 # Tool invocations
-LeonsProject.elf LeonsProject.map: $(OBJS) $(USER_OBJS) C:\Users\sengu\Documents\GitHub\STM32-Microcontoller-Project\LeonsProject\STM32F051R8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "LeonsProject.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0 -T"C:\Users\sengu\Documents\GitHub\STM32-Microcontoller-Project\LeonsProject\STM32F051R8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="LeonsProject.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+LeonsProject.elf LeonsProject.map: $(OBJS) $(USER_OBJS) E:\Documents\GitHub\STM32-Microcontoller-Project\LeonsProject\STM32F051R8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "LeonsProject.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0 -T"E:\Documents\GitHub\STM32-Microcontoller-Project\LeonsProject\STM32F051R8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="LeonsProject.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
