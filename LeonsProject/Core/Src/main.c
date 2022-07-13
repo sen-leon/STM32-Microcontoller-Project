@@ -45,8 +45,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
   // FXAS21002 Addresses (Gyroscope)
-  const uint16_t GYRO_DEVADDR_R = 0x41; // or 0x43 //Read Address of Sensor FXAS21002
-  const uint16_t GYRO_DEVADDR_W = 0x40; // or 0x42 //Write Address of Sensor FXAS21002
+  const uint16_t GYRO_DEVADDR = 0x21<<1;
 
   //Gyro Registers
   const uint8_t Gyro_addr_config = 0x13;
@@ -56,9 +55,11 @@
   uint16_t Gyro_LSB_Y = 0x04;
   uint16_t Gyro_MSB_Z = 0x05;
   uint16_t Gyro_LSB_Z = 0x06;
+  uint16_t Gyro_WHO_AM_I = 0x0C;
 
   // FXOS8700CQ I2C Address (Accelerometer)
-  const uint16_t MAGACC_DEVADDR = 0x1E; //or 0x1D 0x1C 0x1F // with pins SA0=0, SA1=0
+  uint16_t MAGACC_DEVADDR = 0x1F<<1; //0x1E or 0x1D 0x1C 0x1F // with pins SA0=0, SA1=0
+  const uint16_t MAGACC_WHO_AM_I = 0x0D;
 
   //Accelerometer Registers
   const uint16_t ACC_MSB_X = 0x01;
@@ -86,6 +87,8 @@
 /* Private variables ---------------------------------------------------------*/
  I2C_HandleTypeDef hi2c1;
 
+TIM_HandleTypeDef htim1;
+
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -94,12 +97,28 @@
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+HAL_StatusTypeDef initialize_Sensor(uint16_t Sensor_addr, uint16_t WHO_AM_I, uint16_t CTRL_REG, uint8_t CTRL_REG_input, uint8_t *Out)
+{
+	uint8_t buffer;
+
+	HAL_StatusTypeDef ret;
+	//ret = HAL_OK;
+	 //This should return "0xd7" for the Gyroscope and "0xc7" for the Magnetometer/Accelerometer in the buffer[0]
+	ret = HAL_I2C_Mem_Read(&hi2c1, Sensor_addr, WHO_AM_I, 1, &buffer, 1, 5);
+	Out=buffer;
+	//Write the desired values into the control Register
+	ret = HAL_I2C_Mem_Write(&hi2c1, Sensor_addr, CTRL_REG, 1, &CTRL_REG_input, 1, 5);
+	HAL_Delay(50);
+	return ret;
+}
+
 HAL_StatusTypeDef read_Gyro_data(DATA_TypeDef *Data)
 {
 	uint8_t rawData[2];
@@ -112,14 +131,15 @@ HAL_StatusTypeDef read_Gyro_data(DATA_TypeDef *Data)
 
 	//ret=HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t) GYRO_DEVADDR_R, 1000, 5000);
 	//HAL_Delay(10);
-	ret=HAL_I2C_Mem_Read(&hi2c1, GYRO_DEVADDR_R, Gyro_MSB_X, 1, rawData, 2, 5000);
-	HAL_Delay(10);
+	ret=HAL_I2C_Mem_Write_IT(&hi2c1, GYRO_DEVADDR_R, Gyro_MSB_X, 2, rawData, 2);
+	ret=HAL_I2C_Mem_Read_IT(&hi2c1, GYRO_DEVADDR_R, Gyro_MSB_X, 2, rawData, 2);
+
 	ret=HAL_OK;
 	ret=HAL_I2C_Mem_Read(&hi2c1, MAGACC_DEVADDR, MAG_MSB_X, 1, rawData, 2, 5000);
-	HAL_Delay(10);
+
 	ret=HAL_OK;
-	ret=HAL_I2C_Master_Transmit(&hi2c1, GYRO_DEVADDR_W, &Gyro_MSB_X, 1, 5000);
-	HAL_Delay(10);
+	ret=HAL_I2C_Master_Transmit(&hi2c1, GYRO_DEVADDR_W, (uint8_t) &Gyro_MSB_X, 1, 5000);
+
 	ret=HAL_OK;
 	ret=HAL_I2C_Master_Receive(&hi2c1, GYRO_DEVADDR_R, rawData, 2, 5000);
 	//ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, Gyro_MSB_X, 1, rawData, 2, 500);
@@ -132,7 +152,7 @@ HAL_StatusTypeDef read_Gyro_data(DATA_TypeDef *Data)
 		if (ret == HAL_ERROR){
 			return ret;}
 	*/
-	Data->y = ((uint16_t) rawData[0])<<8 | ((uint16_t) rawData[1]);
+	Data->y = ((uint16_t) rawData[1])<<8 | ((uint16_t) rawData[0]);
 
 	/*
 	ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, Gyro_MSB_Z, 1, rawData, 2, 500);
@@ -144,17 +164,15 @@ HAL_StatusTypeDef read_Gyro_data(DATA_TypeDef *Data)
 	return HAL_OK;
 }
 
-HAL_StatusTypeDef read_Magn_Accel_data(uint8_t Sensor_adress, uint8_t config, float Data)
-{
-	uint8_t rawData[2];
-	HAL_StatusTypeDef ret;
-	ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, ACC_MSB_X, 1, rawData, 2, 50);
-	if (ret!= HAL_OK){
-		return ret;}
 
-	return HAL_OK;
+
+HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){ // This interrupt handles the push of the blue button
+
+	//uint8_t rawData[2];
+	//HAL_StatusTypeDef ret;
+	//ret=HAL_I2C_Mem_Read(&hi2c1, GYRO_DEVADDR_R, Gyro_MSB_X, 1, rawData, 2, 5000);
+	HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
 }
-
 
 /* USER CODE END 0 */
 
@@ -187,10 +205,31 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_I2C1_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   //int perm_B1=1;
   DATA_TypeDef Gyro_Data;
+  HAL_StatusTypeDef ret;
+  uint8_t output[2];
 
+  //initialize Gyro Sensor
+  uint16_t CTRL_REG0 = 0x0D;
+  uint16_t CTRL_REG1 = 0x13;
+  //Bandwith BW=4; Full Scale Range FSR= +-250mdps/LSB
+  //This leads to a nominal sensitivity of 7.8125 mdps/LSB
+  uint8_t CTRL_REG0_input = 0b01000011;
+  uint8_t CTRL_REG0_input = 0b00010110;
+  ret = initialize_Sensor(GYRO_DEVADDR, Gyro_WHO_AM_I, CTRL_REG0, CTRL_REG0_input, output);
+  ret = initialize_Sensor(GYRO_DEVADDR, Gyro_WHO_AM_I, CTRL_REG1, CTRL_REG1_input, output);
+
+  //initialize Magnetometer/Accelerometer
+  uint16_t CTRL_REG1 = 0x2A;
+  //Bandwith BW=4; Full Scale Range FSR= +-250mdps/LSB
+  //This leads to a nominal sensitivity of 7.8125 mdps/LSB
+  uint8_t CTRL_REG1_input = 0b00011101;
+
+  ret = initialize_Sensor(MAGACC_DEVADDR, MAGACC_WHO_AM_I, CTRL_REG1, CTRL_REG1_input, output);
+  HAL_Delay(10);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -209,7 +248,6 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  HAL_Delay(500);
 	  //HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
 	  read_Gyro_data(&Gyro_Data);
 	  //read_Gyro_data();
@@ -316,6 +354,52 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 48000;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_DOWN;
+  htim1.Init.Period = 5000;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
 
 }
 

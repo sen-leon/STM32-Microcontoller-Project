@@ -56,6 +56,7 @@
 
 /* External variables --------------------------------------------------------*/
 extern I2C_HandleTypeDef hi2c1;
+extern TIM_HandleTypeDef htim1;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -151,12 +152,26 @@ void EXTI0_1_IRQHandler(void)
 	//uint8_t rawData[2];
 	//HAL_StatusTypeDef ret;
 	//ret=HAL_I2C_Mem_Read(&hi2c1, GYRO_DEVADDR_R, Gyro_MSB_X, 1, rawData, 2, 5000);
-	HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+	//HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
   /* USER CODE END EXTI0_1_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(B1_Pin);
   /* USER CODE BEGIN EXTI0_1_IRQn 1 */
 
   /* USER CODE END EXTI0_1_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM1 break, update, trigger and commutation interrupts.
+  */
+void TIM1_BRK_UP_TRG_COM_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM1_BRK_UP_TRG_COM_IRQn 0 */
+
+  /* USER CODE END TIM1_BRK_UP_TRG_COM_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim1);
+  /* USER CODE BEGIN TIM1_BRK_UP_TRG_COM_IRQn 1 */
+
+  /* USER CODE END TIM1_BRK_UP_TRG_COM_IRQn 1 */
 }
 
 /**

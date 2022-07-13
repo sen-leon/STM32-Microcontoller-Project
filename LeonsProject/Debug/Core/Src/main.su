@@ -1,7 +1,9 @@
-../Core/Src/main.c:103:19:read_Gyro_data	56	static
-../Core/Src/main.c:147:19:read_Magn_Accel_data	48	static
-../Core/Src/main.c:165:5:main	16	static
-../Core/Src/main.c:233:6:SystemClock_Config	104	static
-../Core/Src/main.c:279:13:MX_I2C1_Init	8	static
-../Core/Src/main.c:327:13:MX_GPIO_Init	48	static
-../Core/Src/main.c:366:6:Error_Handler	8	static,ignoring_inline_asm
+../Core/Src/main.c:109:19:initialize_Sensor	56	static
+../Core/Src/main.c:124:19:read_Gyro_data	56	static
+../Core/Src/main.c:171:1:HAL_GPIO_EXTI_Callback	16	static
+../Core/Src/main.c:185:5:main	56	static
+../Core/Src/main.c:271:6:SystemClock_Config	104	static
+../Core/Src/main.c:317:13:MX_I2C1_Init	8	static
+../Core/Src/main.c:365:13:MX_TIM1_Init	32	static
+../Core/Src/main.c:411:13:MX_GPIO_Init	48	static
+../Core/Src/main.c:450:6:Error_Handler	8	static,ignoring_inline_asm
