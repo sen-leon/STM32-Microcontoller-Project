@@ -35,9 +35,9 @@
 
   typedef struct
   {
-  int16_t x;
-  int16_t y;
-  int16_t z;
+  float x;
+  float y;
+  float z;
   } DATA_TypeDef;
 
 /* USER CODE END PTD */
@@ -56,6 +56,8 @@
   uint16_t Gyro_MSB_Z = 0x05;
   uint16_t Gyro_LSB_Z = 0x06;
   uint16_t Gyro_WHO_AM_I = 0x0C;
+
+  float Gyro_conv_factor = 0.0078125; //7.8125 mdps/LSB.
 
   // FXOS8700CQ I2C Address (Accelerometer)
   uint16_t MAGACC_DEVADDR = 0x1F<<1; //0x1E or 0x1D 0x1C 0x1F // with pins SA0=0, SA1=0
@@ -76,6 +78,8 @@
   const uint16_t MAG_LSB_Y = 0x36;
   const uint16_t MAG_MSB_Z = 0x37;
   const uint16_t MAG_LSB_Z = 0x38;
+
+  float Mag_conv_factor = 0.1; //0.1 μT/LSB.
 
 /* USER CODE END PD */
 
@@ -104,69 +108,90 @@ static void MX_TIM1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+int initialize_Sensors()
+{
+	int error_count = 0;
+	HAL_StatusTypeDef ret;
+	uint8_t buffer;
+
+	//INITIALIZE GYROSCOPE
+	ret = HAL_I2C_Mem_Read(&hi2c1, GYRO_DEVADDR, Gyro_WHO_AM_I, 1, &buffer, 1, 5); //This should return "0xd7" for the Gyroscope in the buffer[0]
+	//Bandwidth BW=4; Full Scale Range FSR= +-250mdps/LSB
+	//This leads to a nominal sensitivity of 7.8125 mdps/LSB.
+	error_count += (ret!=HAL_OK);
+	uint16_t CTRL_REG0 = 0x0D;
+	uint8_t CTRL_REG0_input = 0b01000011;
+	//ret = initialize_Sensor(GYRO_DEVADDR, Gyro_WHO_AM_I, CTRL_REG0, CTRL_REG0_input, output);
+	ret = HAL_I2C_Mem_Write(&hi2c1, GYRO_DEVADDR, CTRL_REG0, 1, &CTRL_REG0_input, 1, 5);
+	error_count += (ret!=HAL_OK);
+	//Output Data Rate ODR=12.5Hz; active=1; ready=0
+	uint16_t CTRL_REG1 = 0x13;
+	uint8_t CTRL_REG1_input = 0b00011110;
+	//ret = initialize_Sensor(GYRO_DEVADDR, Gyro_WHO_AM_I, CTRL_REG1, CTRL_REG1_input, output);
+	ret = HAL_I2C_Mem_Write(&hi2c1, GYRO_DEVADDR, CTRL_REG1, 1, &CTRL_REG1_input, 1, 5);
+	error_count += (ret!=HAL_OK);
+
+	//INITIALIZE MAGNETOMETER
+	ret = HAL_I2C_Mem_Read(&hi2c1, GYRO_DEVADDR, Gyro_WHO_AM_I, 1, &buffer, 1, 5); //This should return "0xc7" for the Magnetometer/Accelerometer in the buffer[0]
+	error_count += (ret!=HAL_OK);
+	//Output Data Rate ODR=12.5Hz; low_noise=1; active=1;
+	uint16_t MA_CTRL_REG1 = 0x2A;
+	uint8_t MA_CTRL_REG1_input = 0b00101101;
+	//ret = initialize_Sensor(MAGACC_DEVADDR, MAGACC_WHO_AM_I, MA_CTRL_REG1, MA_CTRL_REG1_input, output);
+	ret = HAL_I2C_Mem_Write(&hi2c1, MAGACC_DEVADDR, MA_CTRL_REG1, 1, &MA_CTRL_REG1_input, 1, 5);
+	error_count += (ret!=HAL_OK);
+	//This sensor has a nominal sensitivity of 0.1 μT/LSB.
+	//Auto-Calibration: disabled; Oversample Ratio OSR=7; Only Magnetometer is active
+	uint16_t M_CTRL_REG1 = 0x5B;
+	uint8_t M_CTRL_REG1_input = 0b00011101;
+	//ret = initialize_Sensor(MAGACC_DEVADDR, MAGACC_WHO_AM_I, M_CTRL_REG1, M_CTRL_REG1_input, output);
+	ret = HAL_I2C_Mem_Write(&hi2c1, MAGACC_DEVADDR, M_CTRL_REG1, 1, &M_CTRL_REG1_input, 1, 5);
+	error_count += (ret!=HAL_OK);
+	return error_count;
+}
+/*
 HAL_StatusTypeDef initialize_Sensor(uint16_t Sensor_addr, uint16_t WHO_AM_I, uint16_t CTRL_REG, uint8_t CTRL_REG_input, uint8_t *Out)
 {
 	uint8_t buffer;
 
 	HAL_StatusTypeDef ret;
-	//ret = HAL_OK;
 	 //This should return "0xd7" for the Gyroscope and "0xc7" for the Magnetometer/Accelerometer in the buffer[0]
 	ret = HAL_I2C_Mem_Read(&hi2c1, Sensor_addr, WHO_AM_I, 1, &buffer, 1, 5);
-	Out=buffer;
+	Out=&buffer;
 	//Write the desired values into the control Register
 	ret = HAL_I2C_Mem_Write(&hi2c1, Sensor_addr, CTRL_REG, 1, &CTRL_REG_input, 1, 5);
 	HAL_Delay(50);
 	return ret;
 }
+*/
 
-HAL_StatusTypeDef read_Gyro_data(DATA_TypeDef *Data)
+HAL_StatusTypeDef read_Sensor_data(int16_t *Data, uint16_t Sensor_address, uint16_t Start_register)
 {
-	uint8_t rawData[2];
-
 	HAL_StatusTypeDef ret;
-	ret=HAL_OK;
-	//ret=HAL_I2C_Mem_Write(&hi2c1, (uint8_t)(Sensor_adress), 0x13, 1, &config, 1, 1000);
-	//if (ret!= HAL_OK){
-	//	return ret;}
-
-	//ret=HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t) GYRO_DEVADDR_R, 1000, 5000);
+	uint8_t buffer[6];
+	ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_address, Start_register, 1, buffer, 6, 5);
 	//HAL_Delay(10);
-	ret=HAL_I2C_Mem_Write_IT(&hi2c1, GYRO_DEVADDR_R, Gyro_MSB_X, 2, rawData, 2);
-	ret=HAL_I2C_Mem_Read_IT(&hi2c1, GYRO_DEVADDR_R, Gyro_MSB_X, 2, rawData, 2);
-
-	ret=HAL_OK;
-	ret=HAL_I2C_Mem_Read(&hi2c1, MAGACC_DEVADDR, MAG_MSB_X, 1, rawData, 2, 5000);
-
-	ret=HAL_OK;
-	ret=HAL_I2C_Master_Transmit(&hi2c1, GYRO_DEVADDR_W, (uint8_t) &Gyro_MSB_X, 1, 5000);
-
-	ret=HAL_OK;
-	ret=HAL_I2C_Master_Receive(&hi2c1, GYRO_DEVADDR_R, rawData, 2, 5000);
-	//ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, Gyro_MSB_X, 1, rawData, 2, 500);
-	HAL_Delay(10);
 		if (ret == HAL_ERROR){
 			return ret;}
-	Data->x = ((uint16_t) rawData[0])<<8 | ((uint16_t) rawData[1]);
-/*
-	ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, Gyro_MSB_Y, 1, rawData, 2, 500);
-		if (ret == HAL_ERROR){
-			return ret;}
-	*/
-	Data->y = ((uint16_t) rawData[1])<<8 | ((uint16_t) rawData[0]);
+/*	Data[0] = ((uint16_t) buffer[1])<<8 | ((uint16_t) buffer[0]);
+	Data[1] = ((uint16_t) buffer[3])<<8 | ((uint16_t) buffer[2]);
+	Data[2] = ((uint16_t) buffer[5])<<8 | ((uint16_t) buffer[4]);*/
 
-	/*
-	ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_adress, Gyro_MSB_Z, 1, rawData, 2, 500);
-	if (ret!= HAL_OK){
-		return ret;}
-	GYRO_DATA->z = rawData;
-	*/
-
-	return HAL_OK;
+	Data[0] = ((uint16_t) buffer[0])<<8 | ((uint16_t) buffer[1]);
+	Data[1] = ((uint16_t) buffer[2])<<8 | ((uint16_t) buffer[3]);
+	Data[2] = ((uint16_t) buffer[4])<<8 | ((uint16_t) buffer[5]);
+	return ret;
 }
 
+void convert_Sensor_Data(int16_t *rawData, DATA_TypeDef *Data, float conv_factor)
+{
+	Data->x = rawData[0]*conv_factor;
+	Data->y = rawData[1]*conv_factor;
+	Data->z = rawData[2]*conv_factor;
+}
 
-
-HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){ // This interrupt handles the push of the blue button
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){ // This interrupt handles the push of the blue button
 
 	//uint8_t rawData[2];
 	//HAL_StatusTypeDef ret;
@@ -208,55 +233,31 @@ int main(void)
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   //int perm_B1=1;
+  //DATA_TypeDef Gyro_Data;
+  int16_t Gyro_rawData[3];
   DATA_TypeDef Gyro_Data;
+  int16_t Mag_rawData[3];
+  DATA_TypeDef Mag_Data;
   HAL_StatusTypeDef ret;
-  uint8_t output[2];
 
-  //initialize Gyro Sensor
-  uint16_t CTRL_REG0 = 0x0D;
-  uint16_t CTRL_REG1 = 0x13;
-  //Bandwith BW=4; Full Scale Range FSR= +-250mdps/LSB
-  //This leads to a nominal sensitivity of 7.8125 mdps/LSB
-  uint8_t CTRL_REG0_input = 0b01000011;
-  uint8_t CTRL_REG0_input = 0b00010110;
-  ret = initialize_Sensor(GYRO_DEVADDR, Gyro_WHO_AM_I, CTRL_REG0, CTRL_REG0_input, output);
-  ret = initialize_Sensor(GYRO_DEVADDR, Gyro_WHO_AM_I, CTRL_REG1, CTRL_REG1_input, output);
+  int init_errors = initialize_Sensors();
 
-  //initialize Magnetometer/Accelerometer
-  uint16_t CTRL_REG1 = 0x2A;
-  //Bandwith BW=4; Full Scale Range FSR= +-250mdps/LSB
-  //This leads to a nominal sensitivity of 7.8125 mdps/LSB
-  uint8_t CTRL_REG1_input = 0b00011101;
-
-  ret = initialize_Sensor(MAGACC_DEVADDR, MAGACC_WHO_AM_I, CTRL_REG1, CTRL_REG1_input, output);
-  HAL_Delay(10);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  //HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, 0);
-  //HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 0);
 
-  /*
-  HAL_I2C_Master_Transmit(hi2c, DevAddress, pData, Size, Timeout);
-  HAL_I2C_Master_Receive(hi2c, DevAddress, pData, Size, Timeout);
-  HAL_I2C_Mem_Read(hi2c, DevAddress, MemAddress, MemAddSize, pData, Size, Timeout);
-  HAL_I2C_Mem_Write(hi2c, DevAddress, MemAddress, MemAddSize, pData, Size, Timeout);
-  */
   while (1)
   {
+	  ret=read_Sensor_data(Gyro_rawData, GYRO_DEVADDR, Gyro_MSB_X);
+	  ret=read_Sensor_data(Mag_rawData, MAGACC_DEVADDR, MAG_MSB_X);
+	  convert_Sensor_Data(Gyro_rawData, &Gyro_Data, Gyro_conv_factor);
+	  convert_Sensor_Data(Mag_rawData, &Mag_Data, Mag_conv_factor);
+
+	  HAL_Delay(10);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  //HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-	  read_Gyro_data(&Gyro_Data);
-	  //read_Gyro_data();
-
-	  /*
-	  uint8_t config= 0b00100000;
-	  read_Gyro_data(GYRO_DEVADDR_R, config, Gyro_Data);
-	  read_Magn_Accel_data(MAGACC_DEVADDR, config, MA_Data);
-	  */
 
 	  //HAL_TIM_Base_Start(&htim1)
 
