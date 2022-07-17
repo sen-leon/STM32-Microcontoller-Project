@@ -21,17 +21,12 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "math.h"
+#include "stdio.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-  typedef struct
-  {
-  int16_t x;
-  int16_t y;
-  int16_t z;
-  } MA_RAWDATA;
 
   typedef struct
   {
@@ -94,6 +89,11 @@
 TIM_HandleTypeDef htim1;
 
 /* USER CODE BEGIN PV */
+
+
+
+float nullangle;
+float currentangle;
 
 /* USER CODE END PV */
 
@@ -193,10 +193,15 @@ void convert_Sensor_Data(int16_t *rawData, DATA_TypeDef *Data, float conv_factor
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){ // This interrupt handles the push of the blue button
 
-	//uint8_t rawData[2];
-	//HAL_StatusTypeDef ret;
-	//ret=HAL_I2C_Mem_Read(&hi2c1, GYRO_DEVADDR_R, Gyro_MSB_X, 1, rawData, 2, 5000);
+	HAL_StatusTypeDef ret;
+	static int16_t Mag_rawRefData[3];
+	static DATA_TypeDef Mag_RefData;
 	HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+	//Set current Sensor values as Reference (Zero)
+	ret=read_Sensor_data(Mag_rawRefData, MAGACC_DEVADDR, MAG_MSB_X);
+	convert_Sensor_Data(Mag_rawRefData, &Mag_RefData, Mag_conv_factor);
+	nullangle = atan2(Mag_RefData.x, Mag_RefData.y)*180/M_PI;
+
 }
 
 /* USER CODE END 0 */
@@ -235,11 +240,13 @@ int main(void)
   //int perm_B1=1;
   //DATA_TypeDef Gyro_Data;
   int16_t Gyro_rawData[3];
-  DATA_TypeDef Gyro_Data;
   int16_t Mag_rawData[3];
+
+  DATA_TypeDef Gyro_Data;
   DATA_TypeDef Mag_Data;
   HAL_StatusTypeDef ret;
-
+  float debug_nullangle;
+  float debug_currentangle;
   int init_errors = initialize_Sensors();
 
   /* USER CODE END 2 */
@@ -252,9 +259,13 @@ int main(void)
 	  ret=read_Sensor_data(Gyro_rawData, GYRO_DEVADDR, Gyro_MSB_X);
 	  ret=read_Sensor_data(Mag_rawData, MAGACC_DEVADDR, MAG_MSB_X);
 	  convert_Sensor_Data(Gyro_rawData, &Gyro_Data, Gyro_conv_factor);
-	  convert_Sensor_Data(Mag_rawData, &Mag_Data, Mag_conv_factor);
+	  convert_Sensor_Data(Mag_rawData, &Mag_Data, Mag_conv_factor*2);
+	  currentangle = atan2(Mag_Data.y, Mag_Data.x)*180/M_PI;
 
-	  HAL_Delay(10);
+	  debug_nullangle = nullangle;
+	  debug_currentangle = currentangle;
+
+	  printf("Current Magnetometer Values are: x = %f, y = %f, z = %f \n", Mag_Data.x, Mag_Data.y, Mag_Data.z);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
