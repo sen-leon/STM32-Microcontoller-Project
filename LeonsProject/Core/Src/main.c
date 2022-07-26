@@ -23,11 +23,12 @@
 /* USER CODE BEGIN Includes */
 #include "math.h"
 #include "stdio.h"
+#include "Sensor_comm.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+/*
   typedef struct
   {
   float x;
@@ -35,22 +36,25 @@
   float z;
   } DATA_TypeDef;
 
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
+  /*
   // FXAS21002 Addresses (Gyroscope)
   const uint16_t GYRO_DEVADDR = 0x21<<1;
 
   //Gyro Registers
   const uint8_t Gyro_addr_config = 0x13;
-  uint16_t Gyro_MSB_X = 0x01;
-  uint16_t Gyro_LSB_X = 0x02;
-  uint16_t Gyro_MSB_Y = 0x03;
-  uint16_t Gyro_LSB_Y = 0x04;
-  uint16_t Gyro_MSB_Z = 0x05;
-  uint16_t Gyro_LSB_Z = 0x06;
-  uint16_t Gyro_WHO_AM_I = 0x0C;
+  const uint16_t Gyro_MSB_X = 0x01;
+  const uint16_t Gyro_LSB_X = 0x02;
+  const uint16_t Gyro_MSB_Y = 0x03;
+  const uint16_t Gyro_LSB_Y = 0x04;
+  const uint16_t Gyro_MSB_Z = 0x05;
+  const uint16_t Gyro_LSB_Z = 0x06;
+  const uint16_t Gyro_WHO_AM_I = 0x0C;
 
   float Gyro_conv_factor = 0.0078125; //7.8125 mdps/LSB
   int Gyro_FSR = 250;
@@ -86,16 +90,22 @@
 
 /* Private variables ---------------------------------------------------------*/
  I2C_HandleTypeDef hi2c1;
-
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
+int16_t Gyro_rawData[3];
+int16_t Mag_rawData[3];
+int16_t Mag_rawRefData[3];
 
+DATA_TypeDef Gyro_Data;
+DATA_TypeDef Mag_Data;
+DATA_TypeDef Mag_RefData;
 
 
 float nullangle;
 float currentangle;
+float angle_to_zero;
 
 /* USER CODE END PV */
 
@@ -112,6 +122,7 @@ static void MX_TIM3_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+/*
 void initialize_Sensors()
 {
 	int error_count = 0;
@@ -163,21 +174,6 @@ void initialize_Sensors()
 	ret = HAL_I2C_Mem_Write(&hi2c1, MAGACC_DEVADDR, M_CTRL_REG1, 1, &M_CTRL_REG1_input, 1, 5);
 	error_count += (ret!=HAL_OK);
 }
-/*
-HAL_StatusTypeDef initialize_Sensor(uint16_t Sensor_addr, uint16_t WHO_AM_I, uint16_t CTRL_REG, uint8_t CTRL_REG_input, uint8_t *Out)
-{
-	uint8_t buffer;
-
-	HAL_StatusTypeDef ret;
-	 //This should return "0xd7" for the Gyroscope and "0xc7" for the Magnetometer/Accelerometer in the buffer[0]
-	ret = HAL_I2C_Mem_Read(&hi2c1, Sensor_addr, WHO_AM_I, 1, &buffer, 1, 5);
-	Out=&buffer;
-	//Write the desired values into the control Register
-	ret = HAL_I2C_Mem_Write(&hi2c1, Sensor_addr, CTRL_REG, 1, &CTRL_REG_input, 1, 5);
-	HAL_Delay(50);
-	return ret;
-}
-*/
 
 HAL_StatusTypeDef read_Sensor_data(int16_t *Data, uint16_t Sensor_address, uint16_t Start_register)
 {
@@ -187,10 +183,6 @@ HAL_StatusTypeDef read_Sensor_data(int16_t *Data, uint16_t Sensor_address, uint1
 	//HAL_Delay(10);
 		if (ret == HAL_ERROR){
 			return ret;}
-/*	Data[0] = ((uint16_t) buffer[1])<<8 | ((uint16_t) buffer[0]);
-	Data[1] = ((uint16_t) buffer[3])<<8 | ((uint16_t) buffer[2]);
-	Data[2] = ((uint16_t) buffer[5])<<8 | ((uint16_t) buffer[4]);*/
-
 	Data[0] = ((int16_t) buffer[0])<<8 | ((int16_t) buffer[1]);
 	Data[1] = ((int16_t) buffer[2])<<8 | ((int16_t) buffer[3]);
 	Data[2] = ((int16_t) buffer[4])<<8 | ((int16_t) buffer[5]);
@@ -203,6 +195,7 @@ void convert_Sensor_Data(int16_t *rawData, DATA_TypeDef *Data, float conv_factor
 	Data->y = rawData[1]*conv_factor;
 	Data->z = rawData[2]*conv_factor;
 }
+*/
 
 void LED_PWM (DATA_TypeDef *Gyro_Data){
 
@@ -234,14 +227,13 @@ void LED_PWM (DATA_TypeDef *Gyro_Data){
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){ // This interrupt handles the push of the blue button
 
 	HAL_StatusTypeDef ret;
-	static int16_t Mag_rawRefData[3];
-	static DATA_TypeDef Mag_RefData;
 	//HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
 	//Set current Sensor values as Reference (Zero)
-	ret=read_Sensor_data(Mag_rawRefData, MAGACC_DEVADDR, MAG_MSB_X);
-	convert_Sensor_Data(Mag_rawRefData, &Mag_RefData, Mag_conv_factor);
+	//ret=read_Sensor_data(Mag_rawRefData, MAGACC_DEVADDR, MAG_MSB_X);
+	//convert_Sensor_Data(Mag_rawRefData, &Mag_RefData, Mag_conv_factor);
+	Mag_RefData=Mag_Data;
 	nullangle = atan2(Mag_RefData.y, Mag_RefData.x)*180/M_PI;
-
+	//HAL_Delay(1);
 }
 
 
@@ -282,14 +274,10 @@ int main(void)
   /* USER CODE BEGIN 2 */
   //int perm_B1=1;
   //DATA_TypeDef Gyro_Data;
-  int16_t Gyro_rawData[3];
-  int16_t Mag_rawData[3];
 
-  DATA_TypeDef Gyro_Data;
-  DATA_TypeDef Mag_Data;
+
+
   HAL_StatusTypeDef ret;
-  float debug_nullangle;
-  float debug_currentangle;
   initialize_Sensors();
 
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
@@ -298,6 +286,7 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  HAL_GPIO_EXTI_Callback(B1_Pin);
 
   while (1)
   {
@@ -305,10 +294,8 @@ int main(void)
 	  ret=read_Sensor_data(Mag_rawData, MAGACC_DEVADDR, MAG_MSB_X);
 	  convert_Sensor_Data(Gyro_rawData, &Gyro_Data, Gyro_conv_factor);
 	  convert_Sensor_Data(Mag_rawData, &Mag_Data, Mag_conv_factor*2);
-	  currentangle = atan2(Mag_Data.y, Mag_Data.x)*180/M_PI;
-
-	  debug_nullangle = nullangle;
-	  debug_currentangle = currentangle;
+	  currentangle = atan2(Mag_Data.y, Mag_Data.x)*180.0/M_PI;
+	  angle_to_zero = currentangle - nullangle;
 
 	  LED_PWM(&Gyro_Data);
 
