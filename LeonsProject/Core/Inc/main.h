@@ -55,7 +55,8 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-
+void sensor_routine (void);
+void sensor_average (void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -65,7 +66,8 @@ void Error_Handler(void);
 #define SWCLK_Pin GPIO_PIN_14
 #define SWCLK_GPIO_Port GPIOA
 /* USER CODE BEGIN Private defines */
-
+#define blue TIM_CHANNEL_3
+#define green TIM_CHANNEL_4
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

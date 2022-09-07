@@ -28,58 +28,11 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-/*
-  typedef struct
-  {
-  float x;
-  float y;
-  float z;
-  } DATA_TypeDef;
-
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
-  /*
-  // FXAS21002 Addresses (Gyroscope)
-  const uint16_t GYRO_DEVADDR = 0x21<<1;
-
-  //Gyro Registers
-  const uint8_t Gyro_addr_config = 0x13;
-  const uint16_t Gyro_MSB_X = 0x01;
-  const uint16_t Gyro_LSB_X = 0x02;
-  const uint16_t Gyro_MSB_Y = 0x03;
-  const uint16_t Gyro_LSB_Y = 0x04;
-  const uint16_t Gyro_MSB_Z = 0x05;
-  const uint16_t Gyro_LSB_Z = 0x06;
-  const uint16_t Gyro_WHO_AM_I = 0x0C;
-
-  float Gyro_conv_factor = 0.0078125; //7.8125 mdps/LSB
-  int Gyro_FSR = 250;
-
-  // FXOS8700CQ I2C Address (Accelerometer)
-  uint16_t MAGACC_DEVADDR = 0x1F<<1; //0x1E or 0x1D 0x1C 0x1F // with pins SA0=0, SA1=0
-  const uint16_t MAGACC_WHO_AM_I = 0x0D;
-
-  //Accelerometer Registers
-  const uint16_t ACC_MSB_X = 0x01;
-  const uint16_t ACC_LSB_X = 0x02;
-  const uint16_t ACC_MSB_Y = 0x03;
-  const uint16_t ACC_LSB_Y = 0x04;
-  const uint16_t ACC_MSB_Z = 0x05;
-  const uint16_t ACC_LSB_Z = 0x06;
-
-  //Magnetometer Registers
-  const uint16_t MAG_MSB_X = 0x33;
-  const uint16_t MAG_LSB_X = 0x34;
-  const uint16_t MAG_MSB_Y = 0x35;
-  const uint16_t MAG_LSB_Y = 0x36;
-  const uint16_t MAG_MSB_Z = 0x37;
-  const uint16_t MAG_LSB_Z = 0x38;
-
-  float Mag_conv_factor = 0.1; //0.1 μT/LSB.
 
 /* USER CODE END PD */
 
@@ -90,13 +43,15 @@
 
 /* Private variables ---------------------------------------------------------*/
  I2C_HandleTypeDef hi2c1;
-TIM_HandleTypeDef htim1;
+
+TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim14;
 
 /* USER CODE BEGIN PV */
 int16_t Gyro_rawData[3];
 int16_t Mag_rawData[3];
-int16_t Mag_rawRefData[3];
+//int16_t Mag_rawRefData[3];
 
 DATA_TypeDef Gyro_Data;
 DATA_TypeDef Mag_Data;
@@ -105,7 +60,12 @@ DATA_TypeDef Mag_RefData;
 
 float nullangle;
 float currentangle;
+//int8_t arr_len = 10;
+float angle_array [10];
+float average_angle;
 float angle_to_zero;
+int8_t LED_Flash_flag = 0b01;
+int8_t Allow_Dim = 0b01;
 
 /* USER CODE END PV */
 
@@ -113,8 +73,9 @@ float angle_to_zero;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
-static void MX_TIM1_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_TIM2_Init(void);
+static void MX_TIM14_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -122,121 +83,71 @@ static void MX_TIM3_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-/*
-void initialize_Sensors()
-{
-	int error_count = 0;
-	HAL_StatusTypeDef ret;
-	uint8_t buffer;
+int LED_PWM (DATA_TypeDef *Gyro_Data){
 
-	//INITIALIZE GYROSCOPE
-	ret = HAL_I2C_Mem_Read(&hi2c1, GYRO_DEVADDR, Gyro_WHO_AM_I, 1, &buffer, 1, 5); //This should return "0xd7" for the Gyroscope in the buffer[0]
-	//This leads to a nominal sensitivity of 7.8125 mdps/LSB.
-	error_count += (ret!=HAL_OK);
-	uint16_t CTRL_REG0 = 0x0D;
-	uint8_t BW = 0b00; //Bandwidth BW=4
-	uint8_t FSR = 0b11; //Full Scale Range FSR= +-250mdps/LSB
-	uint8_t CTRL_REG0_input = BW<<6 | FSR;
-	//uint8_t CTRL_REG0_input = 0b01000011;
-
-	//ret = initialize_Sensor(GYRO_DEVADDR, Gyro_WHO_AM_I, CTRL_REG0, CTRL_REG0_input, output);
-	ret = HAL_I2C_Mem_Write(&hi2c1, GYRO_DEVADDR, CTRL_REG0, 1, &CTRL_REG0_input, 1, 5);
-	error_count += (ret!=HAL_OK);
-
-	uint16_t CTRL_REG1 = 0x13;
-	uint8_t ODR = 0b111; //Output Data Rate ODR=12.5Hz
-	volatile uint8_t ACTIVE = 0b1; //active=1
-	volatile uint8_t READY = 0b0; //ready=X (0 or 1)
-	volatile uint8_t CTRL_REG1_input = ODR<<2 | ACTIVE<<1 | READY;
-	//uint8_t CTRL_REG1_input = 0b00011110;
-
-	//ret = initialize_Sensor(GYRO_DEVADDR, Gyro_WHO_AM_I, CTRL_REG1, CTRL_REG1_input, output);
-	ret = HAL_I2C_Mem_Write(&hi2c1, GYRO_DEVADDR, CTRL_REG1, 1, &CTRL_REG1_input, 1, 5);
-	error_count += (ret!=HAL_OK);
-
-	//INITIALIZE MAGNETOMETER
-	ret = HAL_I2C_Mem_Read(&hi2c1, GYRO_DEVADDR, MAGACC_WHO_AM_I, 1, &buffer, 1, 5); //This should return "0xc7" for the Magnetometer/Accelerometer in the buffer[0]
-	error_count += (ret!=HAL_OK);
-	//Output Data Rate ODR=12.5Hz; low_noise=1; active=1;
-	uint16_t MA_CTRL_REG1 = 0x2A;
-	uint8_t M_ODR = 0b111;
-	uint8_t M_ACTIVE = 0b1;
-	uint8_t M_READY = 0b0;
-	uint8_t MA_CTRL_REG1_input = 0b10101101;
-	//ret = initialize_Sensor(MAGACC_DEVADDR, MAGACC_WHO_AM_I, MA_CTRL_REG1, MA_CTRL_REG1_input, output);
-	ret = HAL_I2C_Mem_Write(&hi2c1, MAGACC_DEVADDR, MA_CTRL_REG1, 1, &MA_CTRL_REG1_input, 1, 5);
-	error_count += (ret!=HAL_OK);
-	//This sensor has a nominal sensitivity of 0.1 μT/LSB.
-	//Auto-Calibration: disabled; Oversample Ratio OSR=7; Only Magnetometer is active
-	uint16_t M_CTRL_REG1 = 0x5B;
-	uint8_t M_CTRL_REG1_input = 0b00011101;
-	//ret = initialize_Sensor(MAGACC_DEVADDR, MAGACC_WHO_AM_I, M_CTRL_REG1, M_CTRL_REG1_input, output);
-	ret = HAL_I2C_Mem_Write(&hi2c1, MAGACC_DEVADDR, M_CTRL_REG1, 1, &M_CTRL_REG1_input, 1, 5);
-	error_count += (ret!=HAL_OK);
-}
-
-HAL_StatusTypeDef read_Sensor_data(int16_t *Data, uint16_t Sensor_address, uint16_t Start_register)
-{
-	HAL_StatusTypeDef ret;
-	uint8_t buffer[6];
-	ret=HAL_I2C_Mem_Read(&hi2c1, Sensor_address, Start_register, 1, buffer, 6, 5);
-	//HAL_Delay(10);
-		if (ret == HAL_ERROR){
-			return ret;}
-	Data[0] = ((int16_t) buffer[0])<<8 | ((int16_t) buffer[1]);
-	Data[1] = ((int16_t) buffer[2])<<8 | ((int16_t) buffer[3]);
-	Data[2] = ((int16_t) buffer[4])<<8 | ((int16_t) buffer[5]);
-	return ret;
-}
-
-void convert_Sensor_Data(int16_t *rawData, DATA_TypeDef *Data, float conv_factor)
-{
-	Data->x = rawData[0]*conv_factor;
-	Data->y = rawData[1]*conv_factor;
-	Data->z = rawData[2]*conv_factor;
-}
-*/
-
-void LED_PWM (DATA_TypeDef *Gyro_Data){
-
-	int min_PWM = 500;
-	int max_PWM = 1000;
-	int x = fabs(Gyro_Data->z)/256*(max_PWM-min_PWM);
+	int min_PWM = 0;
+	int max_PWM = 300;
+	int DutyCycle = fabs(Gyro_Data->z)/256*(max_PWM-min_PWM);
 	float threshold = 0.8;
+	int dir=0;
 
-	int green = 0;
-	int blue = 0;
-	  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
-	  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_4);
-	if (Gyro_Data->z > threshold){ //Gyro_Data->z > 0 ==> Counterclockwise Rotation, LD4 (Blue LED should be on)
-		blue = x;
-		__HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_3, blue);
-		__HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_4, green);
+	HAL_TIM_PWM_Stop(&htim3, blue);
+	HAL_TIM_PWM_Stop(&htim3, green);
+
+	if (Gyro_Data->z > threshold){ //Gyro_Data->z > 0 ==> Counterclockwise Rotation, LD4 (Blue LED) should be on
+		  HAL_TIM_PWM_Start(&htim3, blue);
+		__HAL_TIM_SET_COMPARE(&htim3, blue, DutyCycle);
+		dir = 1;
 	}
-	else if (Gyro_Data->z < -threshold){ //Gyro_Data->z < 0 ==> Clockwise Rotation, LD3 (Blue LED should be on)
-		green = x;
-		__HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_3, blue);
-		__HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_4, green);
+	else if (Gyro_Data->z < -threshold){ //Gyro_Data->z < 0 ==> Clockwise Rotation, LD3 (Green LED) should be on
+		  HAL_TIM_PWM_Start(&htim3, green);
+		__HAL_TIM_SET_COMPARE(&htim3, green, DutyCycle);
+		dir = -1;
 	}
-	else{
-		  HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_3);
-		  HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_4);
+	return dir;
+}
+
+
+void LED_flash (float angle){
+	static int flash_Dutycycle = 200;
+	HAL_TIM_PWM_Stop(&htim3, blue);
+	HAL_TIM_PWM_Stop(&htim3, green);
+
+	if (angle < 0){
+		HAL_TIM_PWM_Start(&htim3, blue); //Angle to zero < 0 ==> Counterclockwise Deviation from 0, LD4 (Blue LED) should flash
+		__HAL_TIM_SET_COMPARE(&htim3, blue, flash_Dutycycle);
+	}
+	else if (angle > 0){
+		HAL_TIM_PWM_Start(&htim3, green); //Angle to zero > 0 ==> Clockwise Deviation from 0, LD4 (Green LED) should flash
+		__HAL_TIM_SET_COMPARE(&htim3, green, flash_Dutycycle);
 	}
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){ // This interrupt handles the push of the blue button
-
-	HAL_StatusTypeDef ret;
-	//HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-	//Set current Sensor values as Reference (Zero)
-	//ret=read_Sensor_data(Mag_rawRefData, MAGACC_DEVADDR, MAG_MSB_X);
-	//convert_Sensor_Data(Mag_rawRefData, &Mag_RefData, Mag_conv_factor);
 	Mag_RefData=Mag_Data;
 	nullangle = atan2(Mag_RefData.y, Mag_RefData.x)*180/M_PI;
-	//HAL_Delay(1);
 }
 
+void sensor_routine(void){
 
+	read_Sensor_data(Gyro_rawData, GYRO_DEVADDR, Gyro_MSB_X);
+	read_Sensor_data(Mag_rawData, MAGACC_DEVADDR, MAG_MSB_X);
+	convert_Sensor_Data(Gyro_rawData, &Gyro_Data, Gyro_conv_factor);
+	convert_Sensor_Data(Mag_rawData, &Mag_Data, Mag_conv_factor);
+	angle_array[0] = atan2(Mag_Data.y, Mag_Data.x)*180.0/M_PI;
+}
+
+void sensor_average (void){
+	float total = 0;
+	size_t arr_len = sizeof(angle_array)/sizeof(angle_array[0]);
+	for (int k = arr_len; k > 0 ; k--){
+		angle_array[k]=angle_array[k-1];
+	}
+	for (int i = 1; i < arr_len; i++) {
+	    total += angle_array[i];
+	}
+	average_angle=total/(arr_len-1); // Averaging out the last 10 Sensor Angle values to reduce noise
+}
 
 /* USER CODE END 0 */
 
@@ -269,53 +180,33 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_I2C1_Init();
-  MX_TIM1_Init();
   MX_TIM3_Init();
+  MX_TIM2_Init();
+  MX_TIM14_Init();
   /* USER CODE BEGIN 2 */
-  //int perm_B1=1;
-  //DATA_TypeDef Gyro_Data;
 
-
-
-  HAL_StatusTypeDef ret;
   initialize_Sensors();
 
-  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
-  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_4);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  HAL_GPIO_EXTI_Callback(B1_Pin);
+
+  HAL_TIM_OC_Start_IT(&htim14, TIM_CHANNEL_1);
+  HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_1);
 
   while (1)
   {
-	  ret=read_Sensor_data(Gyro_rawData, GYRO_DEVADDR, Gyro_MSB_X);
-	  ret=read_Sensor_data(Mag_rawData, MAGACC_DEVADDR, MAG_MSB_X);
-	  convert_Sensor_Data(Gyro_rawData, &Gyro_Data, Gyro_conv_factor);
-	  convert_Sensor_Data(Mag_rawData, &Mag_Data, Mag_conv_factor*2);
-	  currentangle = atan2(Mag_Data.y, Mag_Data.x)*180.0/M_PI;
-	  angle_to_zero = currentangle - nullangle;
-
-	  LED_PWM(&Gyro_Data);
-
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-/*
-	    int x;
-	    for(x=0; x<1000; x=x+1)
-	    {
-	      __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_3, x);
-	      HAL_Delay(1);
-	    }
-	    for(x=1000; x>0; x=x-1)
-	    {
-	      __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_3, x);
-	      HAL_Delay(1);
-	    }
-*/
+		currentangle = atan2(Mag_Data.y, Mag_Data.x)*180.0/M_PI;
+		angle_to_zero = average_angle - nullangle;
+		if (LED_Flash_flag == 0b01 && fabs(angle_to_zero)<5 && fabs(angle_to_zero)>.2){
+			LED_flash(angle_to_zero);
+		} else if (fabs(angle_to_zero)>5){
+			  LED_PWM(&Gyro_Data);
+		}
   }
   /* USER CODE END 3 */
 }
@@ -414,48 +305,60 @@ static void MX_I2C1_Init(void)
 }
 
 /**
-  * @brief TIM1 Initialization Function
+  * @brief TIM2 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_TIM1_Init(void)
+static void MX_TIM2_Init(void)
 {
 
-  /* USER CODE BEGIN TIM1_Init 0 */
+  /* USER CODE BEGIN TIM2_Init 0 */
 
-  /* USER CODE END TIM1_Init 0 */
+  /* USER CODE END TIM2_Init 0 */
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
 
-  /* USER CODE BEGIN TIM1_Init 1 */
+  /* USER CODE BEGIN TIM2_Init 1 */
 
-  /* USER CODE END TIM1_Init 1 */
-  htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 48000;
-  htim1.Init.CounterMode = TIM_COUNTERMODE_DOWN;
-  htim1.Init.Period = 5000;
-  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim1.Init.RepetitionCounter = 0;
-  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 48000;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 500;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
   {
     Error_Handler();
   }
   sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_OC_Init(&htim2) != HAL_OK)
   {
     Error_Handler();
   }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN TIM1_Init 2 */
+  sConfigOC.OCMode = TIM_OCMODE_TIMING;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_OC_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
 
-  /* USER CODE END TIM1_Init 2 */
+  /* USER CODE END TIM2_Init 2 */
 
 }
 
@@ -519,6 +422,37 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 2 */
   HAL_TIM_MspPostInit(&htim3);
+
+}
+
+/**
+  * @brief TIM14 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM14_Init(void)
+{
+
+  /* USER CODE BEGIN TIM14_Init 0 */
+
+  /* USER CODE END TIM14_Init 0 */
+
+  /* USER CODE BEGIN TIM14_Init 1 */
+
+  /* USER CODE END TIM14_Init 1 */
+  htim14.Instance = TIM14;
+  htim14.Init.Prescaler = 48000;
+  htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim14.Init.Period = 40;
+  htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim14.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim14) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM14_Init 2 */
+
+  /* USER CODE END TIM14_Init 2 */
 
 }
 

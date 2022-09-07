@@ -4,6 +4,9 @@
  *  Created on: Jul 26, 2022
  *      Author: sengu
  */
+
+/* Define to prevent recursive inclusion -------------------------------------*/
+
 #ifndef INC_SENSOR_COMM_H_
 #define INC_SENSOR_COMM_H_
 
@@ -44,7 +47,7 @@ extern I2C_HandleTypeDef hi2c1;
   static const uint16_t ACC_LSB_Y = 0x04;
   static const uint16_t ACC_MSB_Z = 0x05;
   static const uint16_t ACC_LSB_Z = 0x06;
-
+  
   //Magnetometer Registers
   static const uint16_t MAG_MSB_X = 0x33;
   static const uint16_t MAG_LSB_X = 0x34;
