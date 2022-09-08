@@ -56,15 +56,18 @@ int16_t Mag_rawData[3];
 DATA_TypeDef Gyro_Data;
 DATA_TypeDef Mag_Data;
 DATA_TypeDef Mag_RefData;
+DATA_TypeDef magMin;
+DATA_TypeDef magMax;
 
 
-float nullangle;
-float currentangle;
-//int8_t arr_len = 10;
-float angle_array [10];
-float average_angle;
-float angle_to_zero;
+float_t nullangle;
+float_t currentangle;
+float_t angle_array [10];
+float_t average_angle;
+float_t angle_to_zero;
 int8_t LED_Flash_flag = 0b01;
+int8_t Blue_flag = 0b01;
+int8_t Green_flag = 0b01;
 int8_t Allow_Dim = 0b01;
 
 /* USER CODE END PV */
@@ -82,24 +85,23 @@ static void MX_TIM14_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-int LED_PWM (DATA_TypeDef *Gyro_Data){
+int LED_dim (DATA_TypeDef *Gyro_Data){
 
 	int min_PWM = 0;
-	int max_PWM = 300;
-	int DutyCycle = fabs(Gyro_Data->z)/256*(max_PWM-min_PWM);
+	int max_PWM = 600;
+	int DutyCycle = fabs(Gyro_Data->z)/256*(max_PWM-min_PWM); //DutyCycle = How much time (in ms) of the PWM cycle the LED is on
 	float threshold = 0.8;
 	int dir=0;
 
 	HAL_TIM_PWM_Stop(&htim3, blue);
 	HAL_TIM_PWM_Stop(&htim3, green);
 
-	if (Gyro_Data->z > threshold){ //Gyro_Data->z > 0 ==> Counterclockwise Rotation, LD4 (Blue LED) should be on
+	if (Gyro_Data->z < -threshold){ //Gyro_Data->z > 0 ==> Clockwise Rotation, LD4 (Blue LED) should be on
 		  HAL_TIM_PWM_Start(&htim3, blue);
 		__HAL_TIM_SET_COMPARE(&htim3, blue, DutyCycle);
 		dir = 1;
 	}
-	else if (Gyro_Data->z < -threshold){ //Gyro_Data->z < 0 ==> Clockwise Rotation, LD3 (Green LED) should be on
+	else if (Gyro_Data->z > threshold){ //Gyro_Data->z < 0 ==> Counterclockwise Rotation, LD3 (Green LED) should be on
 		  HAL_TIM_PWM_Start(&htim3, green);
 		__HAL_TIM_SET_COMPARE(&htim3, green, DutyCycle);
 		dir = -1;
@@ -110,43 +112,24 @@ int LED_PWM (DATA_TypeDef *Gyro_Data){
 
 void LED_flash (float angle){
 	static int flash_Dutycycle = 200;
-	HAL_TIM_PWM_Stop(&htim3, blue);
-	HAL_TIM_PWM_Stop(&htim3, green);
 
-	if (angle < 0){
-		HAL_TIM_PWM_Start(&htim3, blue); //Angle to zero < 0 ==> Counterclockwise Deviation from 0, LD4 (Blue LED) should flash
-		__HAL_TIM_SET_COMPARE(&htim3, blue, flash_Dutycycle);
+	if(LED_Flash_flag == 0b01){
+		if (angle > 0 && Blue_flag==0b01){
+			HAL_TIM_PWM_Start(&htim3, blue); //Angle to zero < 0 ==> Clockwise Deviation from 0, LD4 (Blue LED) should flash
+			__HAL_TIM_SET_COMPARE(&htim3, green, 0);
+			__HAL_TIM_SET_COMPARE(&htim3, blue, flash_Dutycycle);
+			Green_flag=0b00;
+		}
+		else if (angle < 0 && Green_flag==0b01){
+			HAL_TIM_PWM_Start(&htim3, green); //Angle to zero > 0 ==> Counterclockwise Deviation from 0, LD4 (Green LED) should flash
+			__HAL_TIM_SET_COMPARE(&htim3, blue, 0);
+			__HAL_TIM_SET_COMPARE(&htim3, green, flash_Dutycycle);
+			Blue_flag=0b00;
+		}
+	} else{
+		HAL_TIM_PWM_Stop(&htim3, blue);
+		HAL_TIM_PWM_Stop(&htim3, green);
 	}
-	else if (angle > 0){
-		HAL_TIM_PWM_Start(&htim3, green); //Angle to zero > 0 ==> Clockwise Deviation from 0, LD4 (Green LED) should flash
-		__HAL_TIM_SET_COMPARE(&htim3, green, flash_Dutycycle);
-	}
-}
-
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){ // This interrupt handles the push of the blue button
-	Mag_RefData=Mag_Data;
-	nullangle = atan2(Mag_RefData.y, Mag_RefData.x)*180/M_PI;
-}
-
-void sensor_routine(void){
-
-	read_Sensor_data(Gyro_rawData, GYRO_DEVADDR, Gyro_MSB_X);
-	read_Sensor_data(Mag_rawData, MAGACC_DEVADDR, MAG_MSB_X);
-	convert_Sensor_Data(Gyro_rawData, &Gyro_Data, Gyro_conv_factor);
-	convert_Sensor_Data(Mag_rawData, &Mag_Data, Mag_conv_factor);
-	angle_array[0] = atan2(Mag_Data.y, Mag_Data.x)*180.0/M_PI;
-}
-
-void sensor_average (void){
-	float total = 0;
-	size_t arr_len = sizeof(angle_array)/sizeof(angle_array[0]);
-	for (int k = arr_len; k > 0 ; k--){
-		angle_array[k]=angle_array[k-1];
-	}
-	for (int i = 1; i < arr_len; i++) {
-	    total += angle_array[i];
-	}
-	average_angle=total/(arr_len-1); // Averaging out the last 10 Sensor Angle values to reduce noise
 }
 
 /* USER CODE END 0 */
@@ -158,7 +141,8 @@ void sensor_average (void){
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+	  magMin.x = magMin.y = magMin.z = 3.402823466E+38;
+	  magMax.x = magMax.y = magMax.z = 1.175494351e-38F;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -200,12 +184,18 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-		currentangle = atan2(Mag_Data.y, Mag_Data.x)*180.0/M_PI;
-		angle_to_zero = average_angle - nullangle;
-		if (LED_Flash_flag == 0b01 && fabs(angle_to_zero)<5 && fabs(angle_to_zero)>.2){
+	  	currentangle = atan2(Mag_Data.y, Mag_Data.x)*180.0/M_PI;
+//		angle_to_zero = average_angle - nullangle;
+		angle_to_zero = currentangle - nullangle;
+		if(angle_to_zero>180){
+			angle_to_zero = angle_to_zero-360;
+		} else if(angle_to_zero<-180){
+			angle_to_zero = angle_to_zero+360;
+		}
+		if (LED_Flash_flag == 0b01 && fabs(angle_to_zero)<10 && fabs(angle_to_zero)>.2){
 			LED_flash(angle_to_zero);
-		} else if (fabs(angle_to_zero)>5){
-			  LED_PWM(&Gyro_Data);
+		} else if (fabs(angle_to_zero)>10){
+			  LED_dim(&Gyro_Data);
 		}
   }
   /* USER CODE END 3 */
@@ -443,7 +433,7 @@ static void MX_TIM14_Init(void)
   htim14.Instance = TIM14;
   htim14.Init.Prescaler = 48000;
   htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim14.Init.Period = 40;
+  htim14.Init.Period = 20;
   htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim14.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim14) != HAL_OK)
@@ -483,6 +473,52 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){ // This interrupt handles the push of the blue button
+	Mag_RefData=Mag_Data;
+	nullangle = atan2(Mag_RefData.y, Mag_RefData.x)*180/M_PI;
+}
+
+void magCalibration(DATA_TypeDef *mag, DATA_TypeDef *magMin, DATA_TypeDef *magMax)
+{
+  // update minimum mag values
+  magMin->x = min(magMin->x, mag->x);
+  magMin->y = min(magMin->y, mag->y);
+  magMin->z = min(magMin->z, mag->z);
+
+  // update maximum mag values
+  magMax->x = max(magMax->x, mag->x);
+  magMax->y = max(magMax->y, mag->y);
+  magMax->z = max(magMax->z, mag->z);
+
+  // apply offset to current values
+  mag->x -= ((magMin->x + magMax->x) / 2);
+  mag->y -= ((magMin->y + magMax->y) / 2);
+  mag->z -= ((magMin->z + magMax->z) / 2);
+}
+
+void sensor_routine(void){
+	read_Sensor_data(Gyro_rawData, GYRO_DEVADDR, Gyro_MSB_X);
+	read_Sensor_data(Mag_rawData, MAGACC_DEVADDR, MAG_MSB_X);
+	convert_Sensor_Data(Gyro_rawData, &Gyro_Data, Gyro_conv_factor);
+	convert_Sensor_Data(Mag_rawData, &Mag_Data, Mag_conv_factor);
+	magCalibration(&Mag_Data, &magMin, &magMax);
+	angle_array[0] = atan2(Mag_Data.y, Mag_Data.x)*180.0/M_PI;
+}
+
+void sensor_average (void){
+	float total = 0;
+	size_t arr_len = sizeof(angle_array)/sizeof(angle_array[0]);
+	for (int k = arr_len; k > 0 ; k--){
+		angle_array[k]=angle_array[k-1];
+	}
+	for (int i = 1; i < arr_len; i++) {
+	    total += angle_array[i];
+	}
+	average_angle=total/(arr_len-1); // Averaging out the last 10 Sensor Angle values to reduce noise
+}
+
 
 /* USER CODE END 4 */
 

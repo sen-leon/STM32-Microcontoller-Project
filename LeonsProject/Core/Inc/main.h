@@ -68,6 +68,10 @@ void sensor_average (void);
 /* USER CODE BEGIN Private defines */
 #define blue TIM_CHANNEL_3
 #define green TIM_CHANNEL_4
+
+#define min(a,b) (((a)<(b))?(a):(b))
+#define max(a,b) (((a)>(b))?(a):(b))
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

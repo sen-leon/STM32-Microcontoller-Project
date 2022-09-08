@@ -24,7 +24,6 @@ void initialize_Sensors()
 	uint8_t BW = 0b00; //Bandwidth BW=4
 	uint8_t FSR = 0b11; //Full Scale Range FSR= +-250mdps/LSB
 	uint8_t CTRL_REG0_input = BW<<6 | FSR; //Assembly of register Input
-	//uint8_t CTRL_REG0_input = 0b01000011;
 
 	ret = HAL_I2C_Mem_Write(&hi2c1, GYRO_DEVADDR, CTRL_REG0, 1, &CTRL_REG0_input, 1, 5);
 	error_count += (ret!=HAL_OK);
@@ -44,8 +43,7 @@ void initialize_Sensors()
 	error_count += (ret!=HAL_OK);
 
 	uint16_t MA_CTRL_REG1 = 0x2A;
-	uint8_t M_ODR = 0b011; //Output Data Rate ODR in Hybrid Mode = 50Hz
-//	uint8_t M_ODR = 0b001;
+	uint8_t M_ODR = 0b100; //Output Data Rate ODR = 50Hz
 	uint8_t M_LNOISE = 0b1; //low_noise=1;
 	uint8_t M_ACTIVE = 0b1; //active=1;
 	uint8_t MA_CTRL_REG1_input = M_ODR<<3 | M_LNOISE<<2 | M_ACTIVE; //Assembly of register Input
@@ -58,7 +56,7 @@ void initialize_Sensors()
 
 	uint8_t M_ACAL = 0b1; //Auto-Calibration: enabled
 	uint8_t M_OS = 0b111; //Oversample Ratio OSR=7
-	uint8_t M_HMS = 0b11; //Hybrid Mode: enabled
+	uint8_t M_HMS = 0b01; //Hybrid Mode: Only Magnetometer is active
 	uint8_t M_CTRL_REG1_input = M_ACAL<<7 | M_OS<<2 | M_HMS; //Assembly of register Input
 	//ret = initialize_Sensor(MAGACC_DEVADDR, MAGACC_WHO_AM_I, M_CTRL_REG1, M_CTRL_REG1_input, output);
 	ret = HAL_I2C_Mem_Write(&hi2c1, MAGACC_DEVADDR, M_CTRL_REG1, 1, &M_CTRL_REG1_input, 1, 5);
