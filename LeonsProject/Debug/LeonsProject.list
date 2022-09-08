@@ -6694,37 +6694,37 @@ int LED_PWM (DATA_TypeDef *Gyro_Data){
  800342a:	0018      	movs	r0, r3
  800342c:	f003 fd54 	bl	8006ed8 <HAL_TIM_PWM_Stop>
 
-	if (Gyro_Data->z > threshold){ //Gyro_Data->z > 0 ==> Counterclockwise Rotation, LD4 (Blue LED) should be on
+	if (Gyro_Data->z < -threshold){ //Gyro_Data->z > 0 ==> Clockwise Rotation, LD4 (Blue LED) should be on
  8003430:	687b      	ldr	r3, [r7, #4]
- 8003432:	689b      	ldr	r3, [r3, #8]
- 8003434:	1c19      	adds	r1, r3, #0
- 8003436:	68f8      	ldr	r0, [r7, #12]
- 8003438:	f7fd f848 	bl	80004cc <__aeabi_fcmplt>
- 800343c:	1e03      	subs	r3, r0, #0
- 800343e:	d00b      	beq.n	8003458 <LED_PWM+0x9c>
+ 8003432:	6898      	ldr	r0, [r3, #8]
+ 8003434:	68fb      	ldr	r3, [r7, #12]
+ 8003436:	2280      	movs	r2, #128	; 0x80
+ 8003438:	0612      	lsls	r2, r2, #24
+ 800343a:	4053      	eors	r3, r2
+ 800343c:	1c19      	adds	r1, r3, #0
+ 800343e:	f7fd f845 	bl	80004cc <__aeabi_fcmplt>
+ 8003442:	1e03      	subs	r3, r0, #0
+ 8003444:	d00b      	beq.n	800345e <LED_PWM+0xa2>
 		  HAL_TIM_PWM_Start(&htim3, blue);
- 8003440:	4b15      	ldr	r3, [pc, #84]	; (8003498 <LED_PWM+0xdc>)
- 8003442:	2108      	movs	r1, #8
- 8003444:	0018      	movs	r0, r3
- 8003446:	f003 fc8f 	bl	8006d68 <HAL_TIM_PWM_Start>
+ 8003446:	4b14      	ldr	r3, [pc, #80]	; (8003498 <LED_PWM+0xdc>)
+ 8003448:	2108      	movs	r1, #8
+ 800344a:	0018      	movs	r0, r3
+ 800344c:	f003 fc8c 	bl	8006d68 <HAL_TIM_PWM_Start>
 		__HAL_TIM_SET_COMPARE(&htim3, blue, DutyCycle);
- 800344a:	4b13      	ldr	r3, [pc, #76]	; (8003498 <LED_PWM+0xdc>)
- 800344c:	681b      	ldr	r3, [r3, #0]
- 800344e:	693a      	ldr	r2, [r7, #16]
- 8003450:	63da      	str	r2, [r3, #60]	; 0x3c
+ 8003450:	4b11      	ldr	r3, [pc, #68]	; (8003498 <LED_PWM+0xdc>)
+ 8003452:	681b      	ldr	r3, [r3, #0]
+ 8003454:	693a      	ldr	r2, [r7, #16]
+ 8003456:	63da      	str	r2, [r3, #60]	; 0x3c
 		dir = 1;
- 8003452:	2301      	movs	r3, #1
- 8003454:	61fb      	str	r3, [r7, #28]
- 8003456:	e016      	b.n	8003486 <LED_PWM+0xca>
+ 8003458:	2301      	movs	r3, #1
+ 800345a:	61fb      	str	r3, [r7, #28]
+ 800345c:	e013      	b.n	8003486 <LED_PWM+0xca>
 	}
-	else if (Gyro_Data->z < -threshold){ //Gyro_Data->z < 0 ==> Clockwise Rotation, LD3 (Green LED) should be on
- 8003458:	687b      	ldr	r3, [r7, #4]
- 800345a:	6898      	ldr	r0, [r3, #8]
- 800345c:	68fb      	ldr	r3, [r7, #12]
- 800345e:	2280      	movs	r2, #128	; 0x80
- 8003460:	0612      	lsls	r2, r2, #24
- 8003462:	4053      	eors	r3, r2
- 8003464:	1c19      	adds	r1, r3, #0
+	else if (Gyro_Data->z > threshold){ //Gyro_Data->z < 0 ==> Counterclockwise Rotation, LD3 (Green LED) should be on
+ 800345e:	687b      	ldr	r3, [r7, #4]
+ 8003460:	689b      	ldr	r3, [r3, #8]
+ 8003462:	1c19      	adds	r1, r3, #0
+ 8003464:	68f8      	ldr	r0, [r7, #12]
  8003466:	f7fd f831 	bl	80004cc <__aeabi_fcmplt>
  800346a:	1e03      	subs	r3, r0, #0
  800346c:	d00b      	beq.n	8003486 <LED_PWM+0xca>
@@ -6774,13 +6774,13 @@ void LED_flash (float angle){
  80034b2:	0018      	movs	r0, r3
  80034b4:	f003 fd10 	bl	8006ed8 <HAL_TIM_PWM_Stop>
 
-	if (angle < 0){
+	if (angle > 0){
  80034b8:	2100      	movs	r1, #0
  80034ba:	6878      	ldr	r0, [r7, #4]
- 80034bc:	f7fd f806 	bl	80004cc <__aeabi_fcmplt>
+ 80034bc:	f7fd f81a 	bl	80004f4 <__aeabi_fcmpgt>
  80034c0:	1e03      	subs	r3, r0, #0
  80034c2:	d00a      	beq.n	80034da <LED_flash+0x3e>
-		HAL_TIM_PWM_Start(&htim3, blue); //Angle to zero < 0 ==> Counterclockwise Deviation from 0, LD4 (Blue LED) should flash
+		HAL_TIM_PWM_Start(&htim3, blue); //Angle to zero < 0 ==> Clockwise Deviation from 0, LD4 (Blue LED) should flash
  80034c4:	4b0f      	ldr	r3, [pc, #60]	; (8003504 <LED_flash+0x68>)
  80034c6:	2108      	movs	r1, #8
  80034c8:	0018      	movs	r0, r3
@@ -6792,21 +6792,21 @@ void LED_flash (float angle){
  80034d4:	681b      	ldr	r3, [r3, #0]
  80034d6:	63da      	str	r2, [r3, #60]	; 0x3c
 	}
-	else if (angle > 0){
-		HAL_TIM_PWM_Start(&htim3, green); //Angle to zero > 0 ==> Clockwise Deviation from 0, LD4 (Green LED) should flash
+	else if (angle < 0){
+		HAL_TIM_PWM_Start(&htim3, green); //Angle to zero > 0 ==> Counterclockwise Deviation from 0, LD4 (Green LED) should flash
 		__HAL_TIM_SET_COMPARE(&htim3, green, flash_Dutycycle);
 	}
 }
  80034d8:	e010      	b.n	80034fc <LED_flash+0x60>
-	else if (angle > 0){
+	else if (angle < 0){
  80034da:	2100      	movs	r1, #0
  80034dc:	6878      	ldr	r0, [r7, #4]
- 80034de:	f7fd f809 	bl	80004f4 <__aeabi_fcmpgt>
+ 80034de:	f7fc fff5 	bl	80004cc <__aeabi_fcmplt>
  80034e2:	1e03      	subs	r3, r0, #0
  80034e4:	d100      	bne.n	80034e8 <LED_flash+0x4c>
 }
  80034e6:	e009      	b.n	80034fc <LED_flash+0x60>
-		HAL_TIM_PWM_Start(&htim3, green); //Angle to zero > 0 ==> Clockwise Deviation from 0, LD4 (Green LED) should flash
+		HAL_TIM_PWM_Start(&htim3, green); //Angle to zero > 0 ==> Counterclockwise Deviation from 0, LD4 (Green LED) should flash
  80034e8:	4b06      	ldr	r3, [pc, #24]	; (8003504 <LED_flash+0x68>)
  80034ea:	210c      	movs	r1, #12
  80034ec:	0018      	movs	r0, r3

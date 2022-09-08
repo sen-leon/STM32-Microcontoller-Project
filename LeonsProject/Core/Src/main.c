@@ -94,12 +94,12 @@ int LED_PWM (DATA_TypeDef *Gyro_Data){
 	HAL_TIM_PWM_Stop(&htim3, blue);
 	HAL_TIM_PWM_Stop(&htim3, green);
 
-	if (Gyro_Data->z > threshold){ //Gyro_Data->z > 0 ==> Counterclockwise Rotation, LD4 (Blue LED) should be on
+	if (Gyro_Data->z < -threshold){ //Gyro_Data->z > 0 ==> Clockwise Rotation, LD4 (Blue LED) should be on
 		  HAL_TIM_PWM_Start(&htim3, blue);
 		__HAL_TIM_SET_COMPARE(&htim3, blue, DutyCycle);
 		dir = 1;
 	}
-	else if (Gyro_Data->z < -threshold){ //Gyro_Data->z < 0 ==> Clockwise Rotation, LD3 (Green LED) should be on
+	else if (Gyro_Data->z > threshold){ //Gyro_Data->z < 0 ==> Counterclockwise Rotation, LD3 (Green LED) should be on
 		  HAL_TIM_PWM_Start(&htim3, green);
 		__HAL_TIM_SET_COMPARE(&htim3, green, DutyCycle);
 		dir = -1;
@@ -113,12 +113,12 @@ void LED_flash (float angle){
 	HAL_TIM_PWM_Stop(&htim3, blue);
 	HAL_TIM_PWM_Stop(&htim3, green);
 
-	if (angle < 0){
-		HAL_TIM_PWM_Start(&htim3, blue); //Angle to zero < 0 ==> Counterclockwise Deviation from 0, LD4 (Blue LED) should flash
+	if (angle > 0){
+		HAL_TIM_PWM_Start(&htim3, blue); //Angle to zero < 0 ==> Clockwise Deviation from 0, LD4 (Blue LED) should flash
 		__HAL_TIM_SET_COMPARE(&htim3, blue, flash_Dutycycle);
 	}
-	else if (angle > 0){
-		HAL_TIM_PWM_Start(&htim3, green); //Angle to zero > 0 ==> Clockwise Deviation from 0, LD4 (Green LED) should flash
+	else if (angle < 0){
+		HAL_TIM_PWM_Start(&htim3, green); //Angle to zero > 0 ==> Counterclockwise Deviation from 0, LD4 (Green LED) should flash
 		__HAL_TIM_SET_COMPARE(&htim3, green, flash_Dutycycle);
 	}
 }
