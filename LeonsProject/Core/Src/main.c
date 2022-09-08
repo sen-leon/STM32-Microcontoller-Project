@@ -58,12 +58,12 @@ DATA_TypeDef Mag_Data;
 DATA_TypeDef Mag_RefData;
 
 
-float nullangle;
+float phi_0;
 float currentangle;
 //int8_t arr_len = 10;
 float angle_array [10];
-float average_angle;
-float angle_to_zero;
+float phi;
+float phi_N;
 int8_t LED_Flash_flag = 0b01;
 int8_t Allow_Dim = 0b01;
 
@@ -125,7 +125,7 @@ void LED_flash (float angle){
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){ // This interrupt handles the push of the blue button
 	Mag_RefData=Mag_Data;
-	nullangle = atan2(Mag_RefData.y, Mag_RefData.x)*180/M_PI;
+	phi_0 = atan2(Mag_RefData.y, Mag_RefData.x)*180/M_PI;
 }
 
 void sensor_routine(void){
@@ -146,7 +146,7 @@ void sensor_average (void){
 	for (int i = 1; i < arr_len; i++) {
 	    total += angle_array[i];
 	}
-	average_angle=total/(arr_len-1); // Averaging out the last 10 Sensor Angle values to reduce noise
+	phi=total/(arr_len-1); // Averaging out the last 10 Sensor Angle values to reduce noise
 }
 
 /* USER CODE END 0 */
@@ -201,10 +201,10 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 		currentangle = atan2(Mag_Data.y, Mag_Data.x)*180.0/M_PI;
-		angle_to_zero = average_angle - nullangle;
-		if (LED_Flash_flag == 0b01 && fabs(angle_to_zero)<5 && fabs(angle_to_zero)>.2){
-			LED_flash(angle_to_zero);
-		} else if (fabs(angle_to_zero)>5){
+		phi_N = phi - phi_0;
+		if (LED_Flash_flag == 0b01 && fabs(phi_N)<5 && fabs(phi_N)>.2){
+			LED_flash(phi_N);
+		} else if (fabs(phi_N)>5){
 			  LED_PWM(&Gyro_Data);
 		}
   }
